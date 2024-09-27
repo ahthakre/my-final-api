@@ -1,3 +1,5 @@
+import firebase_admin
+from firebase_admin import credentials, db
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 import time
 import os
