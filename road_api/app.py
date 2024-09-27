@@ -10,100 +10,105 @@ import logging
 app = Flask(__name__)
 
 # Setup logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s')
 
-# Initialize Firebase Admin SDK
-firebase_credentials = os.getenv('FIREBASE_CREDENTIALS')  # Get encoded Firebase credentials from environment
-if firebase_credentials:
-    try:
-        cred_dict = json.loads(firebase_credentials)  # Parse the encoded credentials JSON string
-        cred = credentials.Certificate(cred_dict)
-        firebase_admin.initialize_app(cred, {
-            'databaseURL': os.getenv('FIREBASE_DATABASE_URL')  # Set the database URL via environment variable
-        })
-        logging.info("Firebase initialized successfully.")
-    except Exception as e:
-        logging.error(f"Error initializing Firebase: {e}")
-        raise ValueError("Invalid Firebase credentials or initialization issue.")
-else:
-    raise ValueError("Firebase credentials not found. Please set the FIREBASE_CREDENTIALS environment variable.")
+# Ensure Firebase credentials are provided as an environment variable
+firebase_credentials = os.getenv('FIREBASE_CREDENTIALS')
+if not firebase_credentials:
+    logging.error("Firebase credentials not found. Ensure FIREBASE_CREDENTIALS is set.")
+    raise ValueError("Firebase credentials not found. Please set FIREBASE_CREDENTIALS environment variable.")
 
-# Reference to the 'detection' node in Firebase
+try:
+    # Parse the encoded credentials JSON string
+    cred_dict = json.loads(firebase_credentials)
+    cred = credentials.Certificate(cred_dict)
+    # Initialize Firebase Admin SDK with the given credentials
+    firebase_admin.initialize_app(cred, {
+        'databaseURL': 'https://log-object-detection-default-rtdb.firebaseio.com/'
+    })
+    logging.info("Firebase Admin SDK initialized successfully.")
+except Exception as e:
+    logging.error(f"Failed to initialize Firebase Admin SDK: {e}")
+    raise
+
+# Reference to the 'CAMERA ON' node in Firebase
 detection_ref = db.reference('CAMERA ON')
 
-# Helper function for input validation
-def validate_input(data, required_fields):
-    """Validates the input data based on required fields."""
-    missing_fields = [field for field in required_fields if data.get(field) is None]
+# Helper function to validate request data
+def validate_request_data(data, required_fields):
+    missing_fields = [field for field in required_fields if not data.get(field)]
     if missing_fields:
-        return False, f"Missing fields: {', '.join(missing_fields)}"
-    return True, None
+        return False, {"error": f"Missing required fields: {', '.join(missing_fields)}"}, 400
+    return True, None, None
 
-# Endpoint to fetch the last entry from 'detection' child
+# Endpoint to fetch the last entry from 'detection' node
 @app.route('/api/last_detection_data', methods=['GET'])
 def get_last_detection_data():
     try:
-        # Retrieve all data under the 'detection' node
         detection_data = detection_ref.get()
 
         if detection_data:
-            # Get the last entry based on the highest key (assuming UIDs are sortable)
+            # Get the last entry by sorting keys
             last_uid = max(detection_data.keys())
             last_entry = detection_data[last_uid]
-            last_entry["uid"] = last_uid  # Add UID to the response
-            return jsonify({"status": "success", "data": last_entry}), 200
+            last_entry["uid"] = last_uid
+            logging.info(f"Retrieved last detection data for UID: {last_uid}")
+            return jsonify(last_entry), 200
         else:
-            return jsonify({"status": "error", "message": "No data found in detection"}), 404
+            logging.warning("No data found in 'detection'.")
+            return jsonify({"message": "No data found in detection"}), 404
 
     except Exception as e:
-        logging.error(f"Error retrieving data: {e}")
-        return jsonify({"status": "error", "message": "Server error occurred"}), 500
+        logging.error(f"Error fetching last detection data: {e}")
+        return jsonify({"error": "Internal Server Error"}), 500
 
-# Endpoint to store road curvature as angle
+# Endpoint to store road curvature angle
 @app.route('/api/store/curvature', methods=['POST'])
 def store_curvature():
     try:
         data = request.json
-        # Validate input
-        is_valid, error_message = validate_input(data, ['uid', 'angle'])
-        if not is_valid:
-            return jsonify({"status": "error", "message": error_message}), 400
+        valid, error_response, status = validate_request_data(data, ['uid', 'angle'])
+        if not valid:
+            return jsonify(error_response), status
 
         uid = data['uid']
         angle = data['angle']
+        timestamp = time.time()
 
-        # Store the curvature angle under the specific UID with a timestamp
-        detection_ref.child(uid).child('curvature_angle').set(angle)
-        detection_ref.child(uid).child('timestamp').set(time.time())  # Store current timestamp
-        return jsonify({"status": "success", "message": "Curvature angle stored successfully", "curvature_angle": angle}), 200
+        # Store curvature angle and timestamp
+        detection_ref.child(uid).update({'curvature_angle': angle, 'timestamp': timestamp})
+        logging.info(f"Stored curvature angle: {angle} for UID: {uid}")
+
+        return jsonify({"message": "Curvature angle stored successfully", "curvature_angle": angle}), 200
 
     except Exception as e:
         logging.error(f"Error storing curvature angle: {e}")
-        return jsonify({"status": "error", "message": "Server error occurred"}), 500
+        return jsonify({"error": "Internal Server Error"}), 500
 
 # Endpoint to store distance from the front vehicle
 @app.route('/api/store/distance', methods=['POST'])
 def store_distance():
     try:
         data = request.json
-        # Validate input
-        is_valid, error_message = validate_input(data, ['uid', 'distance'])
-        if not is_valid:
-            return jsonify({"status": "error", "message": error_message}), 400
+        valid, error_response, status = validate_request_data(data, ['uid', 'distance'])
+        if not valid:
+            return jsonify(error_response), status
 
         uid = data['uid']
         distance = data['distance']
+        timestamp = time.time()
 
-        # Store the front vehicle distance under the specific UID with a timestamp
-        detection_ref.child(uid).child('front_vehicle_distance').set(distance)
-        detection_ref.child(uid).child('timestamp').set(time.time())  # Store current timestamp
-        return jsonify({"status": "success", "message": "Distance stored successfully", "front_vehicle_distance": distance}), 200
+        # Store distance and timestamp
+        detection_ref.child(uid).update({'front_vehicle_distance': distance, 'timestamp': timestamp})
+        logging.info(f"Stored front vehicle distance: {distance} for UID: {uid}")
+
+        return jsonify({"message": "Distance stored successfully", "front_vehicle_distance": distance}), 200
 
     except Exception as e:
-        logging.error(f"Error storing distance: {e}")
-        return jsonify({"status": "error", "message": "Server error occurred"}), 500
+        logging.error(f"Error storing front vehicle distance: {e}")
+        return jsonify({"error": "Internal Server Error"}), 500
 
 # Main entry point of the Flask app
 if __name__ == '__main__':
-    port = int(os.getenv('PORT', 5000))  # Railway sets the PORT environment variable
-    app.run(debug=False, host='0.0.0.0', port=port)
+    # Run Flask app with better error handling and logging
+    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)), debug=False)
