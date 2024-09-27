@@ -1,13 +1,11 @@
-import firebase_admin
-from firebase_admin import credentials, db
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template, redirect, url_for
 import time
 import os
 import json
 import logging
 
 # Initialize Flask app
-app = Flask(__name__)
+app = Flask(__name__, template_folder='_pycache_')
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s')
@@ -41,7 +39,12 @@ def validate_request_data(data, required_fields):
         return False, {"error": f"Missing required fields: {', '.join(missing_fields)}"}, 400
     return True, None, None
 
-# Endpoint to fetch the last entry from 'detection' node
+# Route to render the HTML page
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+# Endpoint to fetch the last entry from 'detection' node (used by frontend)
 @app.route('/api/last_detection_data', methods=['GET'])
 def get_last_detection_data():
     try:
