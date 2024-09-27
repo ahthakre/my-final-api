@@ -80,4 +80,4 @@ def store_distance():
 # Main entry point of the Flask app
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))  # Railway sets the PORT environment variable
-    app.run(debug=True, host='0.0.0.0', port=port)
+    app.run(debug=True, host='127.0.0.0', port=port)
