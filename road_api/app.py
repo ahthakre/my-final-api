@@ -23,7 +23,7 @@ firebase_admin.initialize_app(cred, {
 detection_ref = db.reference('detections')
 
 # Endpoint to fetch the last entry from 'detection' child
-@app.route('/api/last_detection_data', methods=['GET'])
+@app.route('/api/data', methods=['GET'])
 def get_last_detection_data():
     try:
         # Retrieve all data under the 'detection' child
