@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detection Data Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .data-box {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #e7f5ff;
+            border-left: 4px solid #007bff;
+        }
+        .data-box p {
+            margin: 0;
+        }
+        button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Last Detection Data</h1>
+        <div id="detection-data" class="data-box">
+            <p>Loading data...</p>
+        </div>
+        <button onclick="fetchData()">Refresh Data</button>
+    </div>
+
+    <script>
+        async function fetchData() {
+            try {
+                const response = await fetch('/api/last_detection_data');
+                const data = await response.json();
+
+                if (response.ok) {
+                    const dataBox = document.getElementById('detection-data');
+                    dataBox.innerHTML = `
+                        <p><strong>UID:</strong> ${data.uid}</p>
+                        <p><strong>Curvature Angle:</strong> ${data.curvature_angle || 'N/A'}</p>
+                        <p><strong>Front Vehicle Distance:</strong> ${data.front_vehicle_distance || 'N/A'}</p>
+                        <p><strong>Timestamp:</strong> ${new Date(data.timestamp * 1000).toLocaleString()}</p>
+                    `;
+                } else {
+                    document.getElementById('detection-data').innerHTML = `<p>${data.message || 'Error loading data'}</p>`;
+                }
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                document.getElementById('detection-data').innerHTML = '<p>Error fetching data</p>';
+            }
+        }
+
+        window.onload = fetchData;
+    </script>
+</body>
+</html>
