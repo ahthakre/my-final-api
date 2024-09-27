@@ -20,10 +20,10 @@ firebase_admin.initialize_app(cred, {
 })
 
 # Reference to the 'detection' node in Firebase
-detection_ref = db.reference('detections')
+detection_ref = db.reference('CAMERA ON')
 
 # Endpoint to fetch the last entry from 'detection' child
-@app.route('/api/data', methods=['GET'])
+@app.route('/api/last_detection_data', methods=['GET'])
 def get_last_detection_data():
     try:
         # Retrieve all data under the 'detection' child
@@ -79,5 +79,4 @@ def store_distance():
 
 # Main entry point of the Flask app
 if __name__ == '__main__':
-    port = int(os.getenv('PORT', 5000))  # Railway sets the PORT environment variable
-    app.run(debug=True, host='127.0.0.0', port=port)
+    app.run(debug=True)
